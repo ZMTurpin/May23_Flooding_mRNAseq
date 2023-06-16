@@ -1,0 +1,76 @@
+#log, not a script
+
+
+#fix header in RSEM output tables
+tsv=($(ls *tsv))
+names=($(echo ${tsv[@]} ; awk '{gsub(".tsv","2.tsv") ; print $0}'))
+for((a=0; a<${#tsv[@]}; a++))
+do
+	awk '{gsub("\"\"","\"GeneID\"") ; print $0}' ${tsv[$a]} >> ${names[$a]}
+done
+
+R
+#read DEG tables into R
+library("readr")
+B73 <- read.table("B73_RNAseq_FloodvsControl2.tsv", header=TRUE)
+Ky21 <- read.table("Ky21_RNAseq_FloodvsControl2.tsv", header=TRUE)
+Oh7b <- read.table("Oh7b_RNAseq_FloodvsControl2.tsv", header=TRUE)
+SB <- read.table("SB_RNAseq_FloodvsControl2.tsv", header=TRUE)
+
+#filter rows with (log2FoldChange)^2 >= 4 AND padj =< 0.05
+
+B73sigDif <- (B73[B73$padj <c 0.05 & B73$log2FoldChange*B73$log2FoldChange >= 4, ])
+nrow(B73)
+#[1] 26707
+nrow(B73sigDif)
+#[1] 2336
+
+
+Ky21sigDif <- (Ky21[Ky21$padj < 0.05 & Ky21$log2FoldChange*Ky21$log2FoldChange >= 4, ])
+nrow(Ky21)
+#[1] 26987
+nrow(Ky21sigDif)
+#[1] 3769
+
+Oh7bsigDif <- (Oh7b[Oh7b$padj < 0.05 & Oh7b$log2FoldChange*Oh7b$log2FoldChange >= 4, ])
+nrow(Oh7b)
+#[1] 40334
+nrow(Oh7bsigDif)
+#[1] 11635
+
+SBsigDif <- (SB[SB$padj < 0.05 & SB$log2FoldChange*SB$log2FoldChange >= 4, ])
+ nrow(SB)
+#[1] 24728
+nrow(SBsigDif)
+#[1] 1004
+
+##Oh7b not prefiltered! Rerun DESeq2 on this genotype. error found in logfile, forgot to change command from b73 filename.
+
+
+write.table(B73sigDif, file = "B73_RNAseq_FloodvsControl_sigDif.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
+
+write.table(Ky21sigDif, file = "Ky21_RNAseq_FloodvsControl_sigDif.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
+
+write.table(SBsigDif, file = "SB_RNAseq_FloodvsControl_sigDif.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
+
+######Oh7b corrected######
+#
+
+awk '{gsub(",","\t") ; gsub("\"\"","\"GeneID\"") ; print $0}' Oh7b_RNAseq_FloodvsControl.csv >> Oh7b_RNAseq_FloodvsControl.tsv
+
+R
+#read DEG tables into R
+library("readr")
+Oh7b <- read.table("Oh7b_RNAseq_FloodvsControl.tsv", header=TRUE)
+#filter rows with (log2FoldChange)^2 >= 4 AND padj =< 0.05
+
+Oh7bsigDif <- (Oh7b[Oh7b$padj < 0.05 & Oh7b$log2FoldChange*Oh7b$log2FoldChange >= 4, ])
+nrow(Oh7b)
+#[1] 26845
+nrow(Oh7bsigDif)
+#[1] 1979
+write.table(Oh7bsigDif, file = "Oh7b_RNAseq_FloodvsControl_sigDif.tsv", quote = FALSE, sep = "\t", row.names = FALSE)
+
+
+
+

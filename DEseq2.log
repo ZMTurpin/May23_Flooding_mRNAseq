@@ -1,0 +1,264 @@
+#log, not a script
+
+#Create samples file for each genotype
+	#example Samples file
+	#sample	condition
+	#B73_control_1	control
+	#B73_control_2  control
+	#B73_control_3  control
+	#B73_flood_1  flood
+	#B73_flood_2  flood
+	#B73_flood_3  flood
+#names=(sample $(ls B73*isoforms.results | awk '{gsub(".isoforms.results","") ; print $0}'))
+#cons=(condition $(ls B73*isoforms.results | awk '{split($0,a,"_") ; print a[2]}'))
+#for ((a=0; a<${#names[@]} ; a++)) ; do echo ${names[$a]} ${cons[$a]} >> B73_Samples.txt ; done
+#Construct tx2gene table for each genotype from [genotype]_rsemReference/[genotype].gtf
+gtfs=($(ls *Reference/*gtf))
+tx2gene=($(echo ${gtfs[@]} | awk '{gsub(".gtf","_tx2gene.txt") ; print $0}')) 
+#awk '{gsub(/"/,"") ; gsub(";","") ; print $12,$10}'
+for ((a=0 ; a<${#gtfs[@]} ; a++))
+do
+	awk '{gsub(/"/,"") ; gsub(";","") ; print $12,$10}' ${gtfs[$a]} >> ${tx2gene[$a]}
+done
+#fix sorBi tx2gene
+#awk '{gsub("transcript:","") ; gsub("gene:","") ; print $0}' SorBi_NCBIv3.55_rsemReference/SorBi_NCBIv3.55_tx2gene.txt >> SorBi_NCBIv3.55_rsemReference/SorBi_NCBIv3.55_tx2gene_fixed.txt
+#
+
+##
+#B73 test#
+R
+BiocManager::install("tximport")
+BiocManager::install("tximportData")
+
+library("tximport")
+library("readr")
+library("tximportData")
+
+#read in sample table
+b73Samples <- read.table("B73_Samples.txt", header=TRUE)
+rownames(b73Samples) <- b73Samples$sample
+#create character vector of filepaths(in PWD) for input tables
+b73files <- dir(pattern = glob2rx("B73*isoforms.results"))
+#read in tx2gene
+b73tx2gene <- read.table("B73_v5_rsemReference/B73_v5_tx2gene.txt")
+
+#import quantification data from RSEM output using tximport
+b73txi <- tximport(b73files, type="rsem", tx2gene=b73tx2gene)
+
+
+#construct DESeqDataSet from txi object and sample information in sample table
+
+library("DESeq2")
+ddsB73 <- DESeqDataSetFromTximport(b73txi, colData = b73Samples, design = ~ condition)
+
+#pre-filter to remove low count genes (keep only rows that have at least 10 reads total)
+keep <- rowSums(counts(ddsB73)) >= 10
+ddsB73 <- ddsB73[keep,]
+
+#set reference condition
+ddsB73$condition <- relevel(ddsB73$condition, ref = "control")
+
+#perform Differential Expression Analysis
+
+ddsB73 <- DESeq(ddsB73)
+resB73 <- results(ddsB73)
+resB73
+
+#save table
+write.csv(as.data.frame(resB73), file="B73_RNAseq_FloodvsControl.csv")
+
+#prepare heatmap of sample-to-sample distances
+library("pheatmap")
+sampleDists <- dist(t(assay(ddsB73)))
+library("RColorBrewer")
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- ddsB73$condition
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
+#output PCA of the samples
+vsd <- vst(ddsB73, blind=FALSE)
+plotPCA(vsd, intgroup="condition")
+##################
+##Implement for other genomes
+##################
+#Oh7b
+#Create samples file for each genotype
+        #example Samples file
+        #sample condition
+        #B73_control_1  control
+        #B73_control_2  control
+        #B73_control_3  control
+        #B73_flood_1  flood
+        #B73_flood_2  flood
+        #B73_flood_3  flood
+names=(sample $(ls Oh*isoforms.results | awk '{gsub(".isoforms.results","") ; print $0}'))
+cons=(condition $(ls Oh*isoforms.results | awk '{split($0,a,"_") ; print a[2]}'))
+for ((a=0; a<${#names[@]} ; a++)) ; do echo ${names[$a]} ${cons[$a]} >> Oh7b_Samples.txt ; done
+
+R
+
+library("tximportData")
+
+#read in sample table
+OhSamples <- read.table("Oh7b_Samples.txt", header=TRUE)
+rownames(OhSamples) <- OhSamples$sample
+#create character vector of filepaths(in PWD) for input tables
+Ohfiles <- dir(pattern = glob2rx("Oh*isoforms.results"))
+#read in tx2gene
+Ohtx2gene <- read.table("Oh7b_rsemReference/Oh7b_tx2gene.txt")
+
+#import quantification data from RSEM output using tximport
+Ohtxi <- tximport(Ohfiles, type="rsem", tx2gene=Ohtx2gene)
+
+
+#construct DESeqDataSet from txi object and sample information in sample table
+
+library("DESeq2")
+ddsOh <- DESeqDataSetFromTximport(Ohtxi, colData = OhSamples, design = ~ condition)
+
+#pre-filter to remove low count genes (keep only rows that have at least 10 reads total)
+keep <- rowSums(counts(ddsOh)) >= 10
+ddsOh <- ddsOh[keep,]
+
+#set reference condition
+ddsOh$condition <- relevel(ddsOh$condition, ref = "control")
+
+#perform Differential Expression Analysis
+
+ddsOh <- DESeq(ddsOh)
+resOh <- results(ddsOh)
+resOh
+
+#save table
+write.csv(as.data.frame(resOh), file="Oh7b_RNAseq_FloodvsControl.csv")
+
+#prepare heatmap of sample-to-sample distances
+library("pheatmap")
+sampleDists <- dist(t(assay(ddsOh)))
+library("RColorBrewer")
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- ddsOh$condition
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
+#output PCA of the samples
+vsd <- vst(ddsOh, blind=FALSE)
+plotPCA(vsd)
+
+################
+#Ky21
+#
+names=(sample $(ls Ky*isoforms.results | awk '{gsub(".isoforms.results","") ; print $0}'))
+cons=(condition $(ls Ky*isoforms.results | awk '{split($0,a,"_") ; print a[2]}'))
+for ((a=0; a<${#names[@]} ; a++)) ; do echo ${names[$a]} ${cons[$a]} >> Ky21_Samples.txt ; done
+
+R
+library("tximport")
+library("readr")
+library("tximportData")
+
+#read in sample table
+KySamples <- read.table("Ky21_Samples.txt", header=TRUE)
+rownames(KySamples) <- KySamples$sample
+#create character vector of filepaths(in PWD) for input tables
+Kyfiles <- dir(pattern = glob2rx("Ky*isoforms.results"))
+#read in tx2gene
+Kytx2gene <- read.table("Ky21_rsemReference/Ky21_tx2gene.txt")
+
+#import quantification data from RSEM output using tximport
+Kytxi <- tximport(Kyfiles, type="rsem", tx2gene=Kytx2gene)
+
+
+#construct DESeqDataSet from txi object and sample information in sample table
+
+library("DESeq2")
+ddsKy <- DESeqDataSetFromTximport(Kytxi, colData = KySamples, design = ~ condition)
+
+#pre-filter to remove low count genes (keep only rows that have at least 10 reads total)
+keep <- rowSums(counts(ddsKy)) >= 10
+ddsKy <- ddsKy[keep,]
+
+#set reference condition
+ddsKy$condition <- relevel(ddsKy$condition, ref = "control")
+
+#perform Differential Expression Analysis
+
+ddsKy <- DESeq(ddsKy)
+resKy <- results(ddsKy)
+resKy
+
+#save table
+write.csv(as.data.frame(resKy), file="Ky21_RNAseq_FloodvsControl.csv")
+
+#prepare heatmap of sample-to-sample distances
+library("pheatmap")
+sampleDists <- dist(t(assay(ddsKy)))
+library("RColorBrewer")
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- ddsKy$condition
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
+#output PCA of the samples
+vsd <- vst(ddsKy, blind=FALSE)
+plotPCA(vsd)
+
+#
+################
+#SorghumBicolor
+#
+names=(sample $(ls SB*isoforms.results | awk '{gsub(".isoforms.results","") ; print $0}'))
+cons=(condition $(ls SB*isoforms.results | awk '{split($0,a,"_") ; print a[2]}'))
+for ((a=0; a<${#names[@]} ; a++)) ; do echo ${names[$a]} ${cons[$a]} >> SB_Samples.txt ; done
+
+R
+library("tximport")
+library("readr")
+library("tximportData")
+
+#read in sample table
+SBSamples <- read.table("SB_Samples.txt", header=TRUE)
+rownames(SBSamples) <- SBSamples$sample
+#create character vector of filepaths(in PWD) for input tables
+SBfiles <- dir(pattern = glob2rx("SB*isoforms.results"))
+#read in tx2gene
+SBtx2gene <- read.table("SorBi_NCBIv3.55_rsemReference/SorBi_NCBIv3.55_tx2gene.txt")
+
+#import quantification data from RSEM output using tximport
+SBtxi <- tximport(SBfiles, type="rsem", tx2gene=SBtx2gene)
+
+
+#construct DESeqDataSet from txi object and sample information in sample table
+
+library("DESeq2")
+ddsSB <- DESeqDataSetFromTximport(SBtxi, colData = SBSamples, design = ~ condition)
+
+#pre-filter to remove low count genes (keep only rows that have at least 10 reads total)
+keep <- rowSums(counts(ddsSB)) >= 10
+ddsSB <- ddsSB[keep,]
+
+#set reference condition
+ddsSB$condition <- relevel(ddsSB$condition, ref = "control")
+
+#perform Differential Expression Analysis
+
+ddsSB <- DESeq(ddsSB)
+resSB <- results(ddsSB)
+resSB
+
+#save table
+write.csv(as.data.frame(resSB), file="SB_RNAseq_FloodvsControl.csv")
+
+#prepare heatmap of sample-to-sample distances
+library("pheatmap")
+sampleDists <- dist(t(assay(ddsSB)))
+library("RColorBrewer")
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- ddsSB$condition
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
+#output PCA of the samples
+vsd <- vst(ddsSB, blind=FALSE)
+plotPCA(vsd)
