@@ -18,6 +18,7 @@ Scripts:
 
 trim.sh - Removes comtaminating NEBnext adapter sequences with cutadapt and runs fastqc on trimmed files
 Rsem_align.sh - Creates STAR indices and aligns to transcript models in RSEM. Estimates transcript- and gene-model level mRNA abindances.
+rpm_RNA_GenomeCov.sh - prepares rpm-normalized per-base coverage files (bw) for each replicate of an RNA-seq experiment AND merges the replicates.
 
 Logs
 DEseq2.log - Details Differential Expression analysis (DEseq2) pipeline in R with shell and R code for individual steps.
